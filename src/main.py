@@ -3,6 +3,8 @@ import tensorflow as tf
 import itertools as it
 import numpy as np
 
+import reader
+
 size = 10
 num_classes = 100
 
@@ -78,55 +80,63 @@ class model:
         self.train_step = train_step
 
 
+def train():
+    with tf.Session() as session:
 
-with tf.Session() as session:
+        summary_writer = tf.summary.FileWriter("logs/")
 
-    summary_writer = tf.summary.FileWriter("logs/")
+        with tf.name_scope("Train"):
+            inputs, targets, sequence_lengths = get_input()
 
-    with tf.name_scope("Train"):
-        inputs, targets, sequence_lengths = get_input()
+            with tf.variable_scope("Model", reuse=None):
+                train_model = model(inputs, targets, len(num_seq), sequence_lengths)
 
-        with tf.variable_scope("Model", reuse=None):
-            train_model = model(inputs, targets, len(num_seq), sequence_lengths)
+            tf.summary.scalar("loss", train_model.loss)
+            tf.summary.scalar("learning rate", train_model.learning_rate)
 
-        tf.summary.scalar("loss", train_model.loss)
-        tf.summary.scalar("learning rate", train_model.learning_rate)
+        with tf.name_scope("Test"):
+            test_inputs, test_targets = get_test_input()
 
-    with tf.name_scope("Test"):
-        test_inputs, test_targets = get_test_input()
+            with tf.variable_scope("Model", reuse=True):
+                test_model = model(test_inputs, test_targets, 1)
 
-        with tf.variable_scope("Model", reuse=True):
-            test_model = model(test_inputs, test_targets, 1)
+            tf.summary.scalar("loss", test_model.loss)
 
-        tf.summary.scalar("loss", test_model.loss)
+        merged = tf.summary.merge_all()
+        init_op = tf.global_variables_initializer()
 
-    merged = tf.summary.merge_all()
-    init_op = tf.global_variables_initializer()
+        summary_writer.add_graph(session.graph)
 
-    summary_writer.add_graph(session.graph)
+        session.run(init_op)
 
-    session.run(init_op)
+        for i in range(50):
+            if i % 10 == 0:
+                print(i)
+                summary = session.run(merged)
+                summary_writer.add_summary(summary, i)
 
-    for i in range(50):
-        if i % 10 == 0:
-            print(i)
-            summary = session.run(merged)
-            summary_writer.add_summary(summary, i)
-
-        session.run(train_model.train_step)
-
-
-    logits = test_model.logits
-    loss = test_model.loss
-
-    summary, out, targ, loss = session.run([merged, logits, test_targets, loss])
-
-    # np.set_printoptions(precision=5)
-    pretty_out= np.array([[np.argmax(batch) for batch in batches] for batches in out])
-    pretty_targets = np.array([i.tolist() for i in targ])
-
-    print(loss)
-    print(np.swapaxes(np.array([pretty_out, pretty_targets]), 0, 2))
+            session.run(train_model.train_step)
 
 
+        logits = test_model.logits
+        loss = test_model.loss
+
+        summary, out, targ, loss = session.run([merged, logits, test_targets, loss])
+
+        # np.set_printoptions(precision=5)
+        pretty_out= np.array([[np.argmax(batch) for batch in batches] for batches in out])
+        pretty_targets = np.array([i.tolist() for i in targ])
+
+        print(loss)
+        print(np.swapaxes(np.array([pretty_out, pretty_targets]), 0, 2))
+
+
+
+if __name__ == '__main__':
+    # train()
+
+    dataset = reader.dataset160()
+
+
+    print(dataset.partition(10)[0])
 
