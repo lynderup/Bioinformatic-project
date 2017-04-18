@@ -39,7 +39,7 @@ class DummyModelConfig(object):
 
 
 class TMHModelConfig(object):
-    num_units = 5
+    num_units = 20
     keep_prop = 0.5
 
     num_input_classes = 20
@@ -51,7 +51,7 @@ class TMHModelConfig(object):
     decay_steps = 10
     decay_rate = 0.96
 
-    epochs = 50
+    epochs = 100
 
 
 def do_run(config, should_test=False, should_validate=False, should_print=False):

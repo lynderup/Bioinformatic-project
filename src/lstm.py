@@ -18,11 +18,20 @@ class Model:
         embedding = tf.get_variable("embedding", [config.num_input_classes, config.num_units], dtype=tf.float32)
         _inputs = tf.nn.embedding_lookup(embedding, inputs)
 
-        lstm = tf.contrib.rnn.LSTMBlockFusedCell(num_units=config.num_units, forget_bias=0, cell_clip=None, use_peephole=False)
+        fw_lstm = tf.contrib.rnn.LSTMBlockFusedCell(num_units=config.num_units, forget_bias=0, cell_clip=None, use_peephole=False)
+        bw_lstm = tf.contrib.rnn.TimeReversedFusedRNN(fw_lstm)
 
         initial_state = (tf.zeros([batch_size, config.num_units], tf.float32), tf.zeros([batch_size, config.num_units], tf.float32))
 
-        output, state = lstm(_inputs, initial_state=initial_state, dtype=None, sequence_length=sequence_lengths, scope="rnn")
+        fw_output, fw_state = fw_lstm(_inputs, initial_state=initial_state, dtype=None, sequence_length=sequence_lengths, scope="fw_rnn")
+        if is_training and config.keep_prop < 1:
+            fw_output = tf.nn.dropout(fw_output, config.keep_prop)
+
+        bw_output, bw_state = fw_lstm(fw_output, initial_state=initial_state, dtype=None, sequence_length=sequence_lengths, scope="bw_rnn")
+
+        output = bw_output
+        if is_training and config.keep_prop < 1:
+            output = tf.nn.dropout(output, config.keep_prop)
 
         softmax_w = tf.get_variable("softmax_w", [config.num_units, config.num_output_classes], dtype=tf.float32)
         softmax_b = tf.get_variable("softmax_b", [config.num_output_classes], dtype=tf.float32)
@@ -33,6 +42,7 @@ class Model:
         logits = tf.reshape(_logits, [-1, batch_size, config.num_output_classes])
 
         loss = tf.reduce_mean(sequence_cross_entropy(labels=targets, logits=logits, sequence_lengths=sequence_lengths))
+
 
         self.logits = logits
         self.loss = loss
