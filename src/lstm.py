@@ -43,8 +43,7 @@ class Model:
         if not is_training:
             return
 
-        starting_learning_rate = 0.5
-        learning_rate = tf.train.exponential_decay(starting_learning_rate, global_step, 10, 0.96, staircase=True)
+        learning_rate = tf.train.exponential_decay(config.starting_learning_rate, global_step, config.decay_steps, config.decay_rate, staircase=True)
 
         optimizer = tf.train.AdamOptimizer(learning_rate)
 
@@ -54,7 +53,7 @@ class Model:
         self.train_step = train_step
 
 
-def train(config, summary_writer, should_print=False, validation=None):
+def train(config, summary_writer, should_print=False, should_validate=False):
     batch_size = config.batch_size
 
     with tf.name_scope("Train"):
@@ -96,15 +95,15 @@ def train(config, summary_writer, should_print=False, validation=None):
                         print(i)
                     summary = session.run(merged, feed_dict=feed_dict)
                     summary_writer.add_summary(summary, i)
-                    if validation is not None:
-                        val_inputs, val_targets, val_lengths, _ = validation.partition(batch_size)[0]
+                    if should_validate:
+                        val_inputs, val_targets, val_lengths, _ = config.validation_dataset.partition(batch_size)[0]
 
                         val_feed_dict = {inputs: val_inputs,
                                          targets: val_targets,
                                          sequence_lengths: val_lengths}
 
                         val_loss = session.run(sum_val_loss, feed_dict=val_feed_dict)
-                        summary_writer.add_summary
+                        summary_writer.add_summary(val_loss, i)
 
                 session.run(train_model.train_step, feed_dict=feed_dict)
 

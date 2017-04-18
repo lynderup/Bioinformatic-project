@@ -39,7 +39,7 @@ class DummyModelConfig(object):
 
 
 class TMHModelConfig(object):
-    num_units = 10
+    num_units = 5
     keep_prop = 0.5
 
     num_input_classes = 20
@@ -47,10 +47,14 @@ class TMHModelConfig(object):
 
     batch_size = 16
 
-    epochs = 3
+    starting_learning_rate = 0.01
+    decay_steps = 10
+    decay_rate = 0.96
+
+    epochs = 50
 
 
-def do_run(config, should_test=False, should_print=False):
+def do_run(config, should_test=False, should_validate=False, should_print=False):
     tf.reset_default_graph()
 
     log_dir = "logs/"
@@ -63,7 +67,7 @@ def do_run(config, should_test=False, should_print=False):
 
     summary_writer = tf.summary.FileWriter(new_run_name)
 
-    lstm.train(config, summary_writer, should_print=should_print)
+    lstm.train(config, summary_writer, should_print=should_print, should_validate=should_validate)
 
     predictions = None
     if should_test:
@@ -84,7 +88,7 @@ def do_full_TMH_run():
 
 
 def do_TMH_fold_run(config, should_print=(False, False)):
-    predictions = do_run(config, should_test=True, should_print=should_print[0])
+    predictions = do_run(config, should_test=True, should_validate=True, should_print=should_print[0])
 
     decoded_predictions = [reader.decode_example(prediction) for prediction in cut_to_lengths(predictions)]
 
@@ -103,6 +107,7 @@ def do_TMH_10_fold():
         print("fold %i" % i)
         config.train_dataset = train_set
         config.test_dataset = test_set
+        config.validation_dataset = test_set
 
         ac = do_TMH_fold_run(config, (True, False))
         acs.append(ac)
@@ -114,6 +119,7 @@ def do_TMH_10_fold():
     print("Varians: %f" % varians)
     print()
 
+
 def do_first_TMH_fold():
     config = TMHModelConfig()
     datasets = reader.dataset160_10_fold()
@@ -121,6 +127,7 @@ def do_first_TMH_fold():
     train_set, test_set = datasets.__next__()
     config.train_dataset = train_set
     config.test_dataset = test_set
+    config.validation_dataset = test_set
 
     ac = do_TMH_fold_run(config, (True, True))
 
