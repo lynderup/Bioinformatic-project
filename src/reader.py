@@ -64,6 +64,38 @@ def dataset160():
     return Dataset(np.array(raw_data), np.array(raw_labels))
 
 
+def dataset160_10_fold():
+    path_to_data = "data/Dataset160/"
+    dataset_files = ["set160.%i.labels.txt" % i for i in range(10)]
+
+    datasets = read_datasets([path_to_data + file for file in dataset_files])
+
+    datasets = [[encode_example(example) for example in dataset] for dataset in datasets]
+
+    train_raw_data = []
+    train_raw_labels = []
+
+    test_raw_data = []
+    test_raw_labels = []
+
+    i = 0
+    while i < 10:
+        for idx, dataset in enumerate(datasets):
+            for name, xs, zs in dataset:
+                if idx == i:
+                    test_raw_data.append(xs)
+                    test_raw_labels.append(zs)
+                else:
+                    train_raw_data.append(xs)
+                    train_raw_labels.append(zs)
+
+        train_set = Dataset(np.array(train_raw_data), np.array(train_raw_labels))
+        test_set = Dataset(np.array(test_raw_data), np.array(test_raw_labels))
+
+        yield train_set, test_set
+        i += 1
+
+
 class Dataset:
 
     def __init__(self, raw_data, raw_labels):
