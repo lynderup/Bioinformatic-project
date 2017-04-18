@@ -1,9 +1,10 @@
 import os
 import tensorflow as tf
 import numpy as np
-import lstm
 
+import lstm
 import reader
+import compare_tm_pred as compare
 
 
 num_seq = [1, 2, 4, 5, 6, 7, 8, 9, 10]
