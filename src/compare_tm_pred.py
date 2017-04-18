@@ -79,6 +79,8 @@ def do_compare(true, pred, should_print):
         pred_x, pred_z = [s.strip() for s in pred[key].split('#')]
 
         if len(pred_x) != len(pred_z):
+            print(len(pred_x))
+            print(len(pred_z))
             print("ERROR: prediction on %s has wrong length" % (key))
             sys.exit(1)
 

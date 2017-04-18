@@ -45,6 +45,19 @@ def encode_example(example):
     return name, new_xs, new_zs
 
 
+def decode_example(example):
+    hidden = ['i', 'M', 'o']
+    observables = ['A', 'C', 'E', 'D', 'G', 'F', 'I', 'H', 'K', 'M', 'L', 'N', 'Q', 'P', 'S', 'R', 'T', 'W', 'V', 'Y']
+
+    name, xs, zs, ps = example
+
+    new_xs = "".join([observables[x] for x in xs])
+    new_zs = "".join([hidden[z] for z in zs])
+    new_ps = "".join([hidden[p] for p in ps])
+
+    return name, new_xs, new_zs, new_ps
+
+
 def dataset160():
     path_to_data = "data/Dataset160/"
     dataset_files = ["set160.%i.labels.txt" % i for i in range(10)]
@@ -134,7 +147,11 @@ class Dataset:
             target = np.array(list(it.zip_longest(*batch_labels, fillvalue=0)))
             lengths = [len(xs) for xs in batch_data]
 
-            batch.append((_input, target, lengths))
+            if self.names is not None:
+                batch_names = self.names[start:end]
+                batch.append((_input, target, lengths, batch_names))
+            else:
+                batch.append((_input, target, lengths))
 
         return batch
 

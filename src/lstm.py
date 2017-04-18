@@ -15,7 +15,7 @@ class Model:
     def __init__(self, config,  inputs, targets, batch_size, sequence_lengths=None, is_training=False):
         global_step = tf.Variable(0, trainable=False)
 
-        embedding = tf.get_variable("embedding", [config.num_classes, config.num_units], dtype=tf.float32)
+        embedding = tf.get_variable("embedding", [config.num_input_classes, config.num_units], dtype=tf.float32)
         _inputs = tf.nn.embedding_lookup(embedding, inputs)
 
         lstm = tf.contrib.rnn.LSTMBlockFusedCell(num_units=config.num_units, forget_bias=0, cell_clip=None, use_peephole=False)
@@ -24,13 +24,13 @@ class Model:
 
         output, state = lstm(_inputs, initial_state=initial_state, dtype=None, sequence_length=sequence_lengths, scope="rnn")
 
-        softmax_w = tf.get_variable("softmax_w", [config.num_units, config.num_classes], dtype=tf.float32)
-        softmax_b = tf.get_variable("softmax_b", [config.num_classes], dtype=tf.float32)
+        softmax_w = tf.get_variable("softmax_w", [config.num_units, config.num_output_classes], dtype=tf.float32)
+        softmax_b = tf.get_variable("softmax_b", [config.num_output_classes], dtype=tf.float32)
 
         _output = tf.reshape(output, [-1, config.num_units])
         _logits = tf.matmul(_output, softmax_w) + softmax_b
 
-        logits = tf.reshape(_logits, [-1, batch_size, config.num_classes])
+        logits = tf.reshape(_logits, [-1, batch_size, config.num_output_classes])
 
         loss = tf.reduce_mean(sequence_cross_entropy(labels=targets, logits=logits, sequence_lengths=sequence_lengths))
 
@@ -43,7 +43,7 @@ class Model:
         if not is_training:
             return
 
-        starting_learning_rate = 0.1
+        starting_learning_rate = 0.5
         learning_rate = tf.train.exponential_decay(starting_learning_rate, global_step, 10, 0.96, staircase=True)
 
         optimizer = tf.train.AdamOptimizer(learning_rate)
@@ -54,7 +54,7 @@ class Model:
         self.train_step = train_step
 
 
-def train(config, summary_writer):
+def train(config, summary_writer, should_print=False, validation=None):
     batch_size = config.batch_size
 
     with tf.name_scope("Train"):
@@ -66,12 +66,11 @@ def train(config, summary_writer):
         with tf.variable_scope("Model", reuse=None):
             train_model = Model(config, inputs, targets, batch_size, sequence_lengths=sequence_lengths, is_training=True)
 
-        tf.summary.scalar("loss", train_model.loss)
-        tf.summary.scalar("learning rate", train_model.learning_rate)
+        sum_loss = tf.summary.scalar("loss", train_model.loss)
+        sum_val_loss = tf.summary.scalar("validation loss", train_model.loss)
+        sum_learn_rate = tf.summary.scalar("learning rate", train_model.learning_rate)
 
-
-
-    merged = tf.summary.merge_all()
+    merged = tf.summary.merge([sum_loss, sum_learn_rate])
     init_op = tf.global_variables_initializer()
 
     with tf.Session() as session:
@@ -86,16 +85,26 @@ def train(config, summary_writer):
             batches = train_dataset.partition(batch_size)
             # print("# of batches: %i" % len(batches))
 
-            for j, (_inputs, _targets, _sequence_lengths) in enumerate(batches):
+            for j, (_inputs, _targets, _sequence_lengths, _) in enumerate(batches):
 
                 feed_dict = {inputs: _inputs,
                              targets: _targets,
                              sequence_lengths: _sequence_lengths}
 
                 if j == 0:
-                    print(i)
+                    if should_print:
+                        print(i)
                     summary = session.run(merged, feed_dict=feed_dict)
                     summary_writer.add_summary(summary, i)
+                    if validation is not None:
+                        val_inputs, val_targets, val_lengths, _ = validation.partition(batch_size)[0]
+
+                        val_feed_dict = {inputs: val_inputs,
+                                         targets: val_targets,
+                                         sequence_lengths: val_lengths}
+
+                        val_loss = session.run(sum_val_loss, feed_dict=val_feed_dict)
+                        summary_writer.add_summary
 
                 session.run(train_model.train_step, feed_dict=feed_dict)
 
@@ -103,7 +112,7 @@ def train(config, summary_writer):
 
 
 def test(config, summary_writer):
-    batch_size = 1
+    batch_size = config.batch_size
 
     with tf.name_scope("Test"):
         inputs = tf.placeholder(tf.int32, shape=(None, batch_size), name="inputs")
@@ -119,10 +128,11 @@ def test(config, summary_writer):
         test_model.saver.restore(session, "checkpoints/model.ckpt")
 
         test_dataset = config.test_dataset
-        test_dataset.shuffle()
         batches = test_dataset.partition(batch_size)
 
-        for _inputs, _targets, _sequence_lengths in batches:
+        predictions = []
+
+        for _inputs, _targets, _sequence_lengths, names in batches:
             feed_dict = {inputs: _inputs,
                          targets: _targets,
                          sequence_lengths: _sequence_lengths}
@@ -130,12 +140,18 @@ def test(config, summary_writer):
             logits = test_model.logits
             loss = test_model.loss
 
-            # summary, out, targ, loss = session.run([merged, logits, test_targets, loss])
+            # summary, out, loss = session.run([merged, logits, loss])
             out, loss = session.run([logits, loss], feed_dict=feed_dict)
 
             # np.set_printoptions(precision=5)
-            pretty_out= np.array([[np.argmax(batch) for batch in _batches] for _batches in out])
-            pretty_targets = np.array([i.tolist() for i in _targets])
+            batch_predictions = np.swapaxes(np.argmax(out, axis=2), 0, 1)
+            batch_inputs = np.swapaxes(_inputs, 0, 1)
+            batch_targets = np.swapaxes(_targets, 0, 1)
 
-            print(loss)
-            print(np.swapaxes(np.array([pretty_out, pretty_targets]), 0, 2))
+            for prediction in zip(names, _sequence_lengths, batch_inputs, batch_targets, batch_predictions):
+                predictions.append(prediction)
+
+            # print(loss)
+            # print(np.swapaxes(np.array([pretty_out, pretty_targets]), 0, 2))
+
+    return predictions
