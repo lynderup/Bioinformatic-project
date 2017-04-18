@@ -15,17 +15,8 @@ class Model:
     def __init__(self, config,  inputs, targets, batch_size, sequence_lengths=None, is_training=False):
         global_step = tf.Variable(0, trainable=False)
 
-        # cell = tf.contrib.rnn.BasicLSTMCell(num_units=size, forget_bias=0.0, state_is_tuple=True)
-        # cell = tf.contrib.rnn.LSTMBlockCell(num_units=size, forget_bias=1.0)
-        #
-        # with tf.name_scope("initial_state"):
-        #     initial_state = cell.zero_state(batch_size=batch_size, dtype=tf.float32)
-        #     # tf.summary.tensor_summary('initial_state', initial_state)
-
         embedding = tf.get_variable("embedding", [config.num_classes, config.num_units], dtype=tf.float32)
         _inputs = tf.nn.embedding_lookup(embedding, inputs)
-
-        # outputs, state = tf.contrib.rnn.static_rnn(cell, _inputs, initial_state=initial_state, scope="rnn", sequence_length=sequence_lengths)
 
         lstm = tf.contrib.rnn.LSTMBlockFusedCell(num_units=config.num_units, forget_bias=0, cell_clip=None, use_peephole=False)
 
@@ -35,7 +26,6 @@ class Model:
 
         softmax_w = tf.get_variable("softmax_w", [config.num_units, config.num_classes], dtype=tf.float32)
         softmax_b = tf.get_variable("softmax_b", [config.num_classes], dtype=tf.float32)
-        # logits = [tf.matmul(output, softmax_w) + softmax_b for output in outputs]
 
         _output = tf.reshape(output, [-1, config.num_units])
         _logits = tf.matmul(_output, softmax_w) + softmax_b
@@ -47,14 +37,16 @@ class Model:
         self.logits = logits
         self.loss = loss
 
-        if not is_training: return
+        trainable_vars = tf.trainable_variables()
+        self.saver = tf.train.Saver(trainable_vars)
+
+        if not is_training:
+            return
 
         starting_learning_rate = 0.1
         learning_rate = tf.train.exponential_decay(starting_learning_rate, global_step, 10, 0.96, staircase=True)
 
         optimizer = tf.train.AdamOptimizer(learning_rate)
-
-        trainable_vars = tf.trainable_variables()
 
         train_step = optimizer.minimize(loss, var_list=trainable_vars, global_step=global_step)
 
@@ -92,19 +84,22 @@ def train(config, summary_writer):
 
             train_dataset.shuffle()
             batches = train_dataset.partition(batch_size)
+            # print("# of batches: %i" % len(batches))
 
-            for _inputs, _targets, _sequence_lengths in batches:
+            for j, (_inputs, _targets, _sequence_lengths) in enumerate(batches):
 
                 feed_dict = {inputs: _inputs,
                              targets: _targets,
                              sequence_lengths: _sequence_lengths}
 
-                if i % 10 == 0:
+                if j == 0:
                     print(i)
                     summary = session.run(merged, feed_dict=feed_dict)
                     summary_writer.add_summary(summary, i)
 
                 session.run(train_model.train_step, feed_dict=feed_dict)
+
+        train_model.saver.save(session, "checkpoints/model.ckpt")
 
 
 def test(config, summary_writer):
@@ -120,11 +115,8 @@ def test(config, summary_writer):
 
         tf.summary.scalar("loss", test_model.loss)
 
-    # merged = tf.summary.merge_all()
-    init_op = tf.global_variables_initializer()
-
     with tf.Session() as session:
-        session.run(init_op)
+        test_model.saver.restore(session, "checkpoints/model.ckpt")
 
         test_dataset = config.test_dataset
         test_dataset.shuffle()

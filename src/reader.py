@@ -61,7 +61,7 @@ def dataset160():
             raw_data.append(xs)
             raw_labels.append(zs)
 
-    return Dataset(raw_data, raw_labels)
+    return Dataset(np.array(raw_data), np.array(raw_labels))
 
 
 class Dataset:
