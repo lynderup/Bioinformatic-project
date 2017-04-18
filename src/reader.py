@@ -74,9 +74,11 @@ def dataset160_10_fold():
 
     train_raw_data = []
     train_raw_labels = []
+    train_names = []
 
     test_raw_data = []
     test_raw_labels = []
+    test_names = []
 
     i = 0
     while i < 10:
@@ -85,12 +87,14 @@ def dataset160_10_fold():
                 if idx == i:
                     test_raw_data.append(xs)
                     test_raw_labels.append(zs)
+                    test_names.append(name)
                 else:
                     train_raw_data.append(xs)
                     train_raw_labels.append(zs)
+                    train_names.append(name)
 
-        train_set = Dataset(np.array(train_raw_data), np.array(train_raw_labels))
-        test_set = Dataset(np.array(test_raw_data), np.array(test_raw_labels))
+        train_set = Dataset(np.array(train_raw_data), np.array(train_raw_labels), np.array(train_names))
+        test_set = Dataset(np.array(test_raw_data), np.array(test_raw_labels), np.array(test_names))
 
         yield train_set, test_set
         i += 1
@@ -98,11 +102,12 @@ def dataset160_10_fold():
 
 class Dataset:
 
-    def __init__(self, raw_data, raw_labels):
+    def __init__(self, raw_data, raw_labels, names=None):
 
         self.num_examples = len(raw_data)
         self.raw_data = raw_data
         self.raw_labels = raw_labels
+        self.names = names
 
     def shuffle(self):
         perm = np.arange(self.num_examples)
@@ -110,6 +115,9 @@ class Dataset:
 
         self.raw_data = self.raw_data[perm]
         self.raw_labels = self.raw_labels[perm]
+
+        if self.names is not None:
+            self.names = self.names[perm]
 
     def partition(self, batch_size):
 
