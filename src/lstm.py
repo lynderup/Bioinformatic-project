@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
+
 def sequence_cross_entropy(labels, logits, sequence_lengths):
     cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels, logits=logits)
     if sequence_lengths is not None:
@@ -11,27 +12,33 @@ def sequence_cross_entropy(labels, logits, sequence_lengths):
 
 
 class Model:
-
-    def __init__(self, config,  inputs, targets, batch_size, sequence_lengths=None, is_training=False):
+    def __init__(self, config, inputs, targets, batch_size, sequence_lengths=None, is_training=False):
         global_step = tf.Variable(0, trainable=False)
 
         embedding = tf.get_variable("embedding", [config.num_input_classes, config.num_units], dtype=tf.float32)
         _inputs = tf.nn.embedding_lookup(embedding, inputs)
 
-        fw_lstm = tf.contrib.rnn.LSTMBlockFusedCell(num_units=config.num_units, forget_bias=0, cell_clip=None, use_peephole=False)
-        bw_lstm = tf.contrib.rnn.TimeReversedFusedRNN(fw_lstm)
+        fw_lstm = tf.contrib.rnn.LSTMBlockFusedCell(num_units=config.num_units, forget_bias=0, cell_clip=None,
+                                                    use_peephole=True)
+        # bw_lstm = tf.contrib.rnn.TimeReversedFusedRNN(fw_lstm)
 
-        initial_state = (tf.zeros([batch_size, config.num_units], tf.float32), tf.zeros([batch_size, config.num_units], tf.float32))
+        initial_state = (
+            tf.zeros([batch_size, config.num_units], tf.float32), tf.zeros([batch_size, config.num_units], tf.float32))
 
-        fw_output, fw_state = fw_lstm(_inputs, initial_state=initial_state, dtype=None, sequence_length=sequence_lengths, scope="fw_rnn")
-        if is_training and config.keep_prop < 1:
-            fw_output = tf.nn.dropout(fw_output, config.keep_prop)
+        fw_output, fw_state = fw_lstm(_inputs, initial_state=initial_state, dtype=None,
+                                      sequence_length=sequence_lengths, scope="fw_rnn")
 
-        bw_output, bw_state = fw_lstm(fw_output, initial_state=initial_state, dtype=None, sequence_length=sequence_lengths, scope="bw_rnn")
+        keep_prop = tf.Variable(1, trainable=False, dtype=tf.float32)
+        if is_training:
+            fw_output = tf.nn.dropout(fw_output, keep_prop)
 
-        output = bw_output
-        if is_training and config.keep_prop < 1:
-            output = tf.nn.dropout(output, config.keep_prop)
+        # bw_output, bw_state = bw_lstm(fw_output, initial_state=initial_state, dtype=None,
+        #                               sequence_length=sequence_lengths, scope="bw_rnn")
+        #
+        # output = bw_output
+        output = fw_output
+        # if is_training:
+        #     output = tf.nn.dropout(output, keep_prop)
 
         softmax_w = tf.get_variable("softmax_w", [config.num_units, config.num_output_classes], dtype=tf.float32)
         softmax_b = tf.get_variable("softmax_b", [config.num_output_classes], dtype=tf.float32)
@@ -41,11 +48,11 @@ class Model:
 
         logits = tf.reshape(_logits, [-1, batch_size, config.num_output_classes])
 
-        loss = tf.reduce_mean(sequence_cross_entropy(labels=targets, logits=logits, sequence_lengths=sequence_lengths))
-
+        cross_entropy_loss = tf.reduce_mean(sequence_cross_entropy(labels=targets, logits=logits, sequence_lengths=sequence_lengths))
 
         self.logits = logits
-        self.loss = loss
+        self.cross_entropy_loss = cross_entropy_loss
+        self.keep_prop = keep_prop
 
         trainable_vars = tf.trainable_variables()
         self.saver = tf.train.Saver(trainable_vars)
@@ -53,7 +60,16 @@ class Model:
         if not is_training:
             return
 
-        learning_rate = tf.train.exponential_decay(config.starting_learning_rate, global_step, config.decay_steps, config.decay_rate, staircase=True)
+        # with tf.variable_scope("fw_rnn", reuse=True):
+        #     fw_weights = tf.get_variable("weights", dtype=tf.float32)
+        # with tf.variable_scope("bw_rnn", reuse=True):
+        #     bw_weights = tf.get_variable("weights", dtype=tf.float32)
+
+        loss = cross_entropy_loss# + tf.nn.l2_loss(embedding) + tf.nn.l2_loss(fw_weights) + tf.nn.l2_loss(softmax_w)
+        # loss = cross_entropy_loss + tf.nn.l2_loss(embedding) + tf.nn.l2_loss(fw_weights) + tf.nn.l2_loss(bw_weights) + tf.nn.l2_loss(softmax_w)
+
+        learning_rate = tf.train.exponential_decay(config.starting_learning_rate, global_step, config.decay_steps,
+                                                   config.decay_rate, staircase=True)
 
         optimizer = tf.train.AdamOptimizer(learning_rate)
 
@@ -73,10 +89,11 @@ def train(config, summary_writer, should_print=False, should_validate=False):
         sequence_lengths = tf.placeholder(tf.int32, shape=(batch_size,), name="sequence_lengths")
 
         with tf.variable_scope("Model", reuse=None):
-            train_model = Model(config, inputs, targets, batch_size, sequence_lengths=sequence_lengths, is_training=True)
+            train_model = Model(config, inputs, targets, batch_size, sequence_lengths=sequence_lengths,
+                                is_training=True)
 
-        sum_loss = tf.summary.scalar("loss", train_model.loss)
-        sum_val_loss = tf.summary.scalar("validation loss", train_model.loss)
+        sum_loss = tf.summary.scalar("loss", train_model.cross_entropy_loss)
+        sum_val_loss = tf.summary.scalar("validation loss", train_model.cross_entropy_loss)
         sum_learn_rate = tf.summary.scalar("learning rate", train_model.learning_rate)
 
     merged = tf.summary.merge([sum_loss, sum_learn_rate])
@@ -98,7 +115,8 @@ def train(config, summary_writer, should_print=False, should_validate=False):
 
                 feed_dict = {inputs: _inputs,
                              targets: _targets,
-                             sequence_lengths: _sequence_lengths}
+                             sequence_lengths: _sequence_lengths,
+                             train_model.keep_prop: config.keep_prop}
 
                 if j == 0:
                     if should_print:
@@ -110,7 +128,8 @@ def train(config, summary_writer, should_print=False, should_validate=False):
 
                         val_feed_dict = {inputs: val_inputs,
                                          targets: val_targets,
-                                         sequence_lengths: val_lengths}
+                                         sequence_lengths: val_lengths,
+                                         train_model.keep_prop: 1}
 
                         val_loss = session.run(sum_val_loss, feed_dict=val_feed_dict)
                         summary_writer.add_summary(val_loss, i)
@@ -131,7 +150,7 @@ def test(config, summary_writer):
         with tf.variable_scope("Model", reuse=True):
             test_model = Model(config, inputs, targets, batch_size, sequence_lengths=sequence_lengths)
 
-        tf.summary.scalar("loss", test_model.loss)
+        tf.summary.scalar("loss", test_model.cross_entropy_loss)
 
     with tf.Session() as session:
         test_model.saver.restore(session, "checkpoints/model.ckpt")
@@ -147,7 +166,7 @@ def test(config, summary_writer):
                          sequence_lengths: _sequence_lengths}
 
             logits = test_model.logits
-            loss = test_model.loss
+            loss = test_model.cross_entropy_loss
 
             # summary, out, loss = session.run([merged, logits, loss])
             out, loss = session.run([logits, loss], feed_dict=feed_dict)
@@ -160,7 +179,7 @@ def test(config, summary_writer):
             for prediction in zip(names, _sequence_lengths, batch_inputs, batch_targets, batch_predictions):
                 predictions.append(prediction)
 
-            # print(loss)
-            # print(np.swapaxes(np.array([pretty_out, pretty_targets]), 0, 2))
+                # print(loss)
+                # print(np.swapaxes(np.array([pretty_out, pretty_targets]), 0, 2))
 
     return predictions

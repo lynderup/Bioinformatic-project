@@ -39,8 +39,8 @@ class DummyModelConfig(object):
 
 
 class TMHModelConfig(object):
-    num_units = 20
-    keep_prop = 0.5
+    num_units = 10
+    keep_prop = 0.7
 
     num_input_classes = 20
     num_output_classes = 3
@@ -49,9 +49,9 @@ class TMHModelConfig(object):
 
     starting_learning_rate = 0.01
     decay_steps = 10
-    decay_rate = 0.96
+    decay_rate = 0.99
 
-    epochs = 100
+    epochs = 50
 
 
 def do_run(config, should_test=False, should_validate=False, should_print=False):
@@ -95,6 +95,13 @@ def do_TMH_fold_run(config, should_print=(False, False)):
     true, pred = to_dictionary(decoded_predictions)
 
     ac = compare.do_compare(true, pred, should_print[1])
+
+    name, xs, zs, prediction = decoded_predictions[1]
+    print(name)
+    print(xs)
+    print(zs)
+    print(prediction)
+
     return ac
 
 
@@ -130,6 +137,7 @@ def do_first_TMH_fold():
     config.validation_dataset = test_set
 
     ac = do_TMH_fold_run(config, (True, True))
+
 
 def cut_to_lengths(predictions):
     new_precictions = []
