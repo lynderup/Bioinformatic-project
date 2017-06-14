@@ -48,11 +48,14 @@ class Model:
 
         logits = tf.reshape(_logits, [-1, batch_size, config.num_output_classes])
 
+        print(tf.global_variables())
+
         with tf.variable_scope(tf.get_variable_scope(), reuse=True):
             fw_weights = tf.get_variable("fw_rnn/weights")
-            bw_weights = tf.get_variable("bw_rnn/weights")
+            #bw_weights = tf.get_variable("bw_rnn/weights")
 
-        l2_loss_vars = [embedding, fw_weights, bw_weights, softmax_w]
+        # l2_loss_vars = [embedding, fw_weights, bw_weights, softmax_w]
+        l2_loss_vars = [embedding, fw_weights, softmax_w]
 
         l2_loss = 0
 

@@ -1,3 +1,7 @@
+import numpy as np
+
+import reader
+
 
 def get_dummy_datasets(num_classes, num_seq, test_step_size):
 
@@ -42,4 +46,4 @@ class TMHModelConfig(object):
     decay_steps = 10
     decay_rate = 0.96
 
-    epochs = 100
+    epochs = 10
