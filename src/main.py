@@ -21,7 +21,7 @@ def do_run(config, should_test=False, should_validate=False, should_print=False)
 
     summary_writer = tf.summary.FileWriter(new_run_name)
 
-    # lstm.train(config, summary_writer, should_print=should_print, should_validate=should_validate)
+    lstm.train(config, summary_writer, should_print=should_print, should_validate=should_validate)
 
     predictions = None
     if should_test:
@@ -85,6 +85,7 @@ def do_first_TMH_fold():
     config.validation_dataset = test_set
 
     ac = do_TMH_fold_run(config, (True, True))
+
 
 def cut_to_lengths(predictions):
     new_precictions = []
