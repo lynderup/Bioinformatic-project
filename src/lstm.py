@@ -23,7 +23,7 @@ class Model:
 
         fw_lstm = tf.contrib.rnn.LSTMBlockFusedCell(num_units=config.num_units, forget_bias=0, cell_clip=None,
                                                     use_peephole=False)
-        # bw_lstm = tf.contrib.rnn.TimeReversedFusedRNN(fw_lstm)
+        bw_lstm = tf.contrib.rnn.TimeReversedFusedRNN(fw_lstm)
 
         initial_state = (
             tf.zeros([batch_size, config.num_units], tf.float32), tf.zeros([batch_size, config.num_units], tf.float32))
@@ -31,17 +31,17 @@ class Model:
         fw_output, fw_state = fw_lstm(_inputs, initial_state=initial_state, dtype=None,
                                       sequence_length=sequence_lengths, scope="fw_rnn")
 
+        bw_output, bw_state = bw_lstm(_inputs, initial_state=initial_state, dtype=None,
+                                      sequence_length=sequence_lengths, scope="bw_rnn")
+
         keep_prop = tf.Variable(1, trainable=False, dtype=tf.float32, name="keep_prop")
         if is_training:
             fw_output = tf.nn.dropout(fw_output, keep_prop)
+            bw_output = tf.nn.dropout(bw_output, keep_prop)
 
-        # bw_output, bw_state = bw_lstm(fw_output, initial_state=initial_state, dtype=None,
-        #                               sequence_length=sequence_lengths, scope="bw_rnn")
         #
         # output = bw_output
         output = fw_output
-        # if is_training:
-        #     output = tf.nn.dropout(output, keep_prop)
 
         softmax_w = tf.get_variable("softmax_w", [config.num_units, config.num_output_classes], dtype=tf.float32)
         softmax_b = tf.get_variable("softmax_b", [config.num_output_classes], dtype=tf.float32)
@@ -160,7 +160,7 @@ def train(config, summary_writer, logdir,  should_print=False, should_validate=F
         train_model.saver.save(session, "%s/model.ckpt" % logdir)
 
 
-def test(config, summary_writer):
+def test(config, summary_writer, logdir):
     batch_size = config.batch_size
 
     with tf.name_scope("Test"):
@@ -174,7 +174,7 @@ def test(config, summary_writer):
         tf.summary.scalar("loss", test_model.cross_entropy_loss)
 
     with tf.Session() as session:
-        test_model.saver.restore(session, "checkpoints/model.ckpt")
+        test_model.saver.restore(session, "%s/model.ckpt" % logdir)
 
         test_dataset = config.test_dataset
         batches = test_dataset.partition(batch_size)

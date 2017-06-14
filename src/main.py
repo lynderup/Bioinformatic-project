@@ -27,7 +27,7 @@ def do_run(config, should_test=False, should_validate=False, should_print=False)
 
     predictions = None
     if should_test:
-        predictions = lstm.test(config, summary_writer)
+        predictions = lstm.test(config, summary_writer, new_run_name)
 
     summary_writer.add_graph(tf.get_default_graph())
     summary_writer.flush()
@@ -50,6 +50,7 @@ def do_TMH_fold_run(config, should_print=(False, False)):
     print(decoded_predictions[0])
 
     writer.write_predictions(decoded_predictions, "test")
+    # writer.write_predictions(predictions, "test")
 
     true, pred = to_dictionary(decoded_predictions)
 
