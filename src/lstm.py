@@ -41,13 +41,23 @@ class Model:
 
         logits = tf.reshape(_logits, [-1, batch_size, config.num_output_classes])
 
+        with tf.variable_scope(tf.get_variable_scope(), reuse=True):
+            fw_weights = tf.get_variable("fw_rnn/weights")
+            bw_weights = tf.get_variable("bw_rnn/weights")
+
+        l2_loss_vars = [embedding, fw_weights, bw_weights, softmax_w]
+
         loss = tf.reduce_mean(sequence_cross_entropy(labels=targets, logits=logits, sequence_lengths=sequence_lengths))
+
+        for var in l2_loss_vars:
+            loss += tf.nn.l2_loss(var)
 
 
         self.logits = logits
         self.loss = loss
 
         trainable_vars = tf.trainable_variables()
+        print(trainable_vars)
         self.saver = tf.train.Saver(trainable_vars)
 
         if not is_training:
@@ -128,7 +138,7 @@ def test(config, summary_writer):
         targets = tf.placeholder(tf.int32, shape=(None, batch_size), name="targets")
         sequence_lengths = tf.placeholder(tf.int32, shape=(batch_size,), name="sequence_lengths")
 
-        with tf.variable_scope("Model", reuse=True):
+        with tf.variable_scope("Model", reuse=None):
             test_model = Model(config, inputs, targets, batch_size, sequence_lengths=sequence_lengths)
 
         tf.summary.scalar("loss", test_model.loss)

@@ -67,7 +67,7 @@ def do_run(config, should_test=False, should_validate=False, should_print=False)
 
     summary_writer = tf.summary.FileWriter(new_run_name)
 
-    lstm.train(config, summary_writer, should_print=should_print, should_validate=should_validate)
+    # lstm.train(config, summary_writer, should_print=should_print, should_validate=should_validate)
 
     predictions = None
     if should_test:
@@ -91,6 +91,7 @@ def do_TMH_fold_run(config, should_print=(False, False)):
     predictions = do_run(config, should_test=True, should_validate=True, should_print=should_print[0])
 
     decoded_predictions = [reader.decode_example(prediction) for prediction in cut_to_lengths(predictions)]
+    print(decoded_predictions[0])
 
     true, pred = to_dictionary(decoded_predictions)
 
@@ -171,7 +172,7 @@ if __name__ == '__main__':
     # config = DummyModelConfig()
 
     # clear_logs()
-    clear_checkpoints()
+    # clear_checkpoints()
 
     # do_TMH_run()
     # do_TMH_10_fold()
