@@ -5,8 +5,10 @@ import numpy as np
 
 import lstm
 import reader
+import write_prediction as writer
 import compare_tm_pred as compare
 import model_configs as models
+
 
 def do_run(config, should_test=False, should_validate=False, should_print=False):
     tf.reset_default_graph()
@@ -21,7 +23,7 @@ def do_run(config, should_test=False, should_validate=False, should_print=False)
 
     summary_writer = tf.summary.FileWriter(new_run_name)
 
-    lstm.train(config, summary_writer, should_print=should_print, should_validate=should_validate)
+    lstm.train(config, summary_writer, new_run_name, should_print=should_print, should_validate=should_validate)
 
     predictions = None
     if should_test:
@@ -46,6 +48,8 @@ def do_TMH_fold_run(config, should_print=(False, False)):
 
     decoded_predictions = [reader.decode_example(prediction) for prediction in cut_to_lengths(predictions)]
     print(decoded_predictions[0])
+
+    writer.write_predictions(decoded_predictions, "test")
 
     true, pred = to_dictionary(decoded_predictions)
 
@@ -131,6 +135,7 @@ if __name__ == '__main__':
 
     # do_TMH_run()
     # do_TMH_10_fold()
+
     do_first_TMH_fold()
 
     # dataset = reader.dataset160()
