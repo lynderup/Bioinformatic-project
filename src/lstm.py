@@ -54,12 +54,14 @@ class Model:
 
         l2_loss_vars = [embedding, fw_weights, bw_weights, softmax_w]
 
-        loss = tf.reduce_mean(sequence_cross_entropy(labels=targets, logits=logits, sequence_lengths=sequence_lengths))
+        l2_loss = 0
 
         for var in l2_loss_vars:
-            loss += tf.nn.l2_loss(var)
+            l2_loss += tf.nn.l2_loss(var)
 
-        cross_entropy_loss = tf.reduce_mean(sequence_cross_entropy(labels=targets, logits=logits, sequence_lengths=sequence_lengths))
+        cross_entropy_loss = tf.reduce_mean(sequence_cross_entropy(labels=targets,
+                                                                   logits=logits,
+                                                                   sequence_lengths=sequence_lengths))
 
         self.logits = logits
         self.cross_entropy_loss = cross_entropy_loss
@@ -76,6 +78,7 @@ class Model:
 
         optimizer = tf.train.AdamOptimizer(learning_rate)
 
+        loss = cross_entropy_loss + l2_loss
         train_step = optimizer.minimize(loss, var_list=trainable_vars, global_step=global_step)
 
         self.learning_rate = learning_rate
