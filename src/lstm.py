@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import os
 
 
 def sequence_cross_entropy(labels, logits, sequence_lengths):
@@ -16,10 +17,12 @@ class Model:
         global_step = tf.Variable(0, trainable=False)
 
         embedding = tf.get_variable("embedding", [config.num_input_classes, config.num_units], dtype=tf.float32)
+        self.embedding = embedding
+
         _inputs = tf.nn.embedding_lookup(embedding, inputs)
 
         fw_lstm = tf.contrib.rnn.LSTMBlockFusedCell(num_units=config.num_units, forget_bias=0, cell_clip=None,
-                                                    use_peephole=True)
+                                                    use_peephole=False)
         # bw_lstm = tf.contrib.rnn.TimeReversedFusedRNN(fw_lstm)
 
         initial_state = (
@@ -28,7 +31,7 @@ class Model:
         fw_output, fw_state = fw_lstm(_inputs, initial_state=initial_state, dtype=None,
                                       sequence_length=sequence_lengths, scope="fw_rnn")
 
-        keep_prop = tf.Variable(1, trainable=False, dtype=tf.float32)
+        keep_prop = tf.Variable(1, trainable=False, dtype=tf.float32, name="keep_prop")
         if is_training:
             fw_output = tf.nn.dropout(fw_output, keep_prop)
 
@@ -50,18 +53,6 @@ class Model:
 
         print(tf.global_variables())
 
-        with tf.variable_scope(tf.get_variable_scope(), reuse=True):
-            fw_weights = tf.get_variable("fw_rnn/weights")
-            #bw_weights = tf.get_variable("bw_rnn/weights")
-
-        # l2_loss_vars = [embedding, fw_weights, bw_weights, softmax_w]
-        l2_loss_vars = [embedding, fw_weights, softmax_w]
-
-        l2_loss = 0
-
-        for var in l2_loss_vars:
-            l2_loss += tf.nn.l2_loss(var)
-
         cross_entropy_loss = tf.reduce_mean(sequence_cross_entropy(labels=targets,
                                                                    logits=logits,
                                                                    sequence_lengths=sequence_lengths))
@@ -76,6 +67,20 @@ class Model:
         if not is_training:
             return
 
+        l2_loss = tf.constant(0, dtype=tf.float32)
+
+        if config.l2_reg:
+
+            with tf.variable_scope(tf.get_variable_scope(), reuse=True):
+                fw_weights = tf.get_variable("fw_rnn/kernel")
+                #bw_weights = tf.get_variable("bw_rnn/weights")
+
+            # l2_loss_vars = [embedding, fw_weights, bw_weights, softmax_w]
+            l2_loss_vars = [embedding, fw_weights, softmax_w]
+
+            for var in l2_loss_vars:
+                l2_loss += tf.nn.l2_loss(var)
+
         learning_rate = tf.train.exponential_decay(config.starting_learning_rate, global_step, config.decay_steps,
                                                    config.decay_rate, staircase=True)
 
@@ -88,7 +93,7 @@ class Model:
         self.train_step = train_step
 
 
-def train(config, summary_writer, should_print=False, should_validate=False):
+def train(config, summary_writer, logdir,  should_print=False, should_validate=False):
     batch_size = config.batch_size
 
     with tf.name_scope("Train"):
@@ -104,6 +109,13 @@ def train(config, summary_writer, should_print=False, should_validate=False):
         sum_loss = tf.summary.scalar("loss", train_model.cross_entropy_loss)
         sum_val_loss = tf.summary.scalar("validation loss", train_model.cross_entropy_loss)
         sum_learn_rate = tf.summary.scalar("learning rate", train_model.learning_rate)
+        # sum_embedding = tf.summary.
+
+        # projector_config = tf.contrib.tensorboard.plugins.projector.ProjectorConfig()
+        # embeddings = projector_config.embeddings.add()
+        # embeddings.tensor_name = train_model.embedding.name
+        # embeddings.metadata_path = os.path.join(logdir, 'metadata.tsv')
+        # tf.contrib.tensorboard.plugins.projector.visualize_embeddings(summary_writer, projector_config)
 
     merged = tf.summary.merge([sum_loss, sum_learn_rate])
     init_op = tf.global_variables_initializer()
@@ -145,7 +157,7 @@ def train(config, summary_writer, should_print=False, should_validate=False):
 
                 session.run(train_model.train_step, feed_dict=feed_dict)
 
-        train_model.saver.save(session, "checkpoints/model.ckpt")
+        train_model.saver.save(session, "%s/model.ckpt" % logdir)
 
 
 def test(config, summary_writer):

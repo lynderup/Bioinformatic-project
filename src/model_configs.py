@@ -36,6 +36,7 @@ class DummyModelConfig(object):
 class TMHModelConfig(object):
     num_units = 20
     keep_prop = 0.5
+    l2_reg = False
 
     num_input_classes = 20
     num_output_classes = 3
@@ -46,4 +47,4 @@ class TMHModelConfig(object):
     decay_steps = 10
     decay_rate = 0.96
 
-    epochs = 10
+    epochs = 50
