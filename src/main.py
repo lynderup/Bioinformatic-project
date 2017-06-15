@@ -6,8 +6,11 @@ import numpy as np
 import lstm
 import reader
 import write_prediction as writer
-import compare_tm_pred as compare
 import model_configs as models
+
+import compare_tm_pred as compare
+import compare_prediction as compare2
+import reduce_noise
 
 
 def do_run(config, should_test=False, should_validate=False, should_print=False):
@@ -50,11 +53,16 @@ def do_TMH_fold_run(config, should_print=(False, False)):
     print(decoded_predictions[0])
 
     writer.write_predictions(decoded_predictions, "test")
+    noise_reduced = reduce_noise.reduce_noise(decoded_predictions)
+    writer.write_predictions(noise_reduced, "test2")
+
     # writer.write_predictions(predictions, "test")
 
     true, pred = to_dictionary(decoded_predictions)
 
     ac = compare.do_compare(true, pred, should_print[1])
+    compare2.compare_predictions(decoded_predictions)
+    compare2.compare_predictions(noise_reduced)
     return ac
 
 

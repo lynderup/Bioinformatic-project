@@ -41,12 +41,15 @@ class Model:
 
         #
         # output = bw_output
-        output = fw_output
+        # output = fw_output
 
-        softmax_w = tf.get_variable("softmax_w", [config.num_units, config.num_output_classes], dtype=tf.float32)
+        softmax_w = tf.get_variable("softmax_w", [config.num_units * 2, config.num_output_classes], dtype=tf.float32)
         softmax_b = tf.get_variable("softmax_b", [config.num_output_classes], dtype=tf.float32)
 
-        _output = tf.reshape(output, [-1, config.num_units])
+        _fw_output = tf.reshape(fw_output, [-1, config.num_units])
+        _bw_output = tf.reshape(bw_output, [-1, config.num_units])
+        _output = tf.concat([_fw_output, _bw_output], 1)
+
         _logits = tf.matmul(_output, softmax_w) + softmax_b
 
         logits = tf.reshape(_logits, [-1, batch_size, config.num_output_classes])
