@@ -28,7 +28,7 @@ def reduce_noise(predictions):
 
         for i, p in enumerate(ps):
             start = max(0, i - window_radius)
-            end = min(len(ps) - 1, i + window_radius)
+            end = min(len(ps) - 1, i + window_radius) + 1
 
             j = np.argmax(count_in_window(ps[start:end]))
 
