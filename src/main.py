@@ -61,8 +61,10 @@ def do_TMH_fold_run(config, should_print=(False, False)):
     true, pred = to_dictionary(decoded_predictions)
 
     ac = compare.do_compare(true, pred, should_print[1])
-    compare2.compare_predictions(decoded_predictions)
-    compare2.compare_predictions(noise_reduced)
+    compare2.compare_predictions(decoded_predictions, compare2.endpoints_diff_below_5_overlap_over_50_percent)
+    compare2.compare_predictions(decoded_predictions, compare2.overlap_over_25_percent)
+    compare2.compare_predictions(noise_reduced, compare2.endpoints_diff_below_5_overlap_over_50_percent)
+    compare2.compare_predictions(noise_reduced, compare2.overlap_over_25_percent)
     return ac
 
 
