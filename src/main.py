@@ -1,15 +1,13 @@
 import os
 import shutil
 import tensorflow as tf
-import numpy as np
 
 import lstm
 import reader
 import write_prediction as writer
 import model_configs as models
+import statistics as stat
 
-import compare_tm_pred as compare
-import compare_prediction as compare2
 import reduce_noise
 
 
@@ -46,32 +44,26 @@ def do_full_TMH_run():
     do_run(config)
 
 
-def do_TMH_fold_run(config, should_print=(False, False)):
+def do_TMH_fold_run(config, stat_wn, stat_won, filename, should_print=(False, False)):
     predictions = do_run(config, should_test=True, should_validate=True, should_print=should_print[0])
 
     decoded_predictions = [reader.decode_example(prediction) for prediction in cut_to_lengths(predictions)]
-    print(decoded_predictions[0])
-
-    writer.write_predictions(decoded_predictions, "test")
     noise_reduced = reduce_noise.reduce_noise(decoded_predictions)
-    writer.write_predictions(noise_reduced, "test2")
 
-    # writer.write_predictions(predictions, "test")
+    stat_wn.add_prediction(decoded_predictions)
+    stat_won.add_prediction(noise_reduced)
 
-    true, pred = to_dictionary(decoded_predictions)
-
-    ac = compare.do_compare(true, pred, should_print[1])
-    compare2.compare_predictions(decoded_predictions, compare2.endpoints_diff_below_5_overlap_over_50_percent)
-    compare2.compare_predictions(decoded_predictions, compare2.overlap_over_25_percent)
-    compare2.compare_predictions(noise_reduced, compare2.endpoints_diff_below_5_overlap_over_50_percent)
-    compare2.compare_predictions(noise_reduced, compare2.overlap_over_25_percent)
-    return ac
+    if filename is not None:
+        writer.write_predictions(decoded_predictions, filename)
+        writer.write_predictions(noise_reduced, "%s_noise_reduced" % filename)
 
 
 def do_TMH_10_fold():
     config = models.TMHModelConfig()
     datasets = reader.dataset160_10_fold()
-    acs = []
+
+    lstm_stat = stat.Statistic("LSTM")
+    noise_reduced_lstm_stat = stat.Statistic("Noise reduced LSTM")
 
     for i, (train_set, test_set) in enumerate(datasets):
         print("fold %i" % i)
@@ -79,15 +71,10 @@ def do_TMH_10_fold():
         config.test_dataset = test_set
         config.validation_dataset = test_set
 
-        ac = do_TMH_fold_run(config, (True, False))
-        acs.append(ac)
+        do_TMH_fold_run(config, lstm_stat, noise_reduced_lstm_stat, "fold%i" % i, (True, False))
 
-    mean = np.mean(acs)
-    varians = np.var(acs)
-
-    print("Mean:    %f" % mean)
-    print("Varians: %f" % varians)
-    print()
+    lstm_stat.print_statistics()
+    noise_reduced_lstm_stat.print_statistics()
 
 
 def do_first_TMH_fold():
@@ -99,7 +86,13 @@ def do_first_TMH_fold():
     config.test_dataset = test_set
     config.validation_dataset = test_set
 
-    ac = do_TMH_fold_run(config, (True, True))
+    lstm_stat = stat.Statistic("LSTM")
+    noise_reduced_lstm_stat = stat.Statistic("Noise reduced LSTM")
+
+    do_TMH_fold_run(config, lstm_stat, noise_reduced_lstm_stat, "test", (True, True))
+
+    lstm_stat.print_statistics()
+    noise_reduced_lstm_stat.print_statistics()
 
 
 def cut_to_lengths(predictions):
@@ -112,17 +105,6 @@ def cut_to_lengths(predictions):
         new_precictions.append((name, new_xs, new_zs, new_prediction))
 
     return new_precictions
-
-
-def to_dictionary(predictions):
-    true = {}
-    pred = {}
-
-    for name, xs, zs, prediction in predictions:
-        true[name] = "%s # %s" % (xs, zs)
-        pred[name] = "%s # %s" % (xs, prediction)
-
-    return true, pred
 
 
 def clear_checkpoints():
@@ -144,10 +126,9 @@ if __name__ == '__main__':
     # clear_logs()
     # clear_checkpoints()
 
-    # do_TMH_run()
-    # do_TMH_10_fold()
+    do_TMH_10_fold()
 
-    do_first_TMH_fold()
+    # do_first_TMH_fold()
 
     # dataset = reader.dataset160()
     # print(dataset.partition(10)[0])

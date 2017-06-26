@@ -10,7 +10,7 @@ def write_predictions(predictions, filename):
         #     zs = "".join([str(z) for z in zs])
         #     ps = "".join([str(p) for p in ps])
 
-            file.write(">test %s \n" % name)
+            file.write(">%s \n" % name)
             file.write("%s \n" % xs)
             file.write("%s \n" % zs)
             file.write("%s \n\n" % ps)

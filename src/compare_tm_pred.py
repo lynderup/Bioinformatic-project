@@ -68,7 +68,7 @@ def print_stats(tp, fp, tn, fn, should_print=True):
     if should_print:
         print("Sn = %.4f, Sp = %.4f, CC = %.4f, AC = %.4f" % (sn, sp, cc, ac))
 
-    return ac
+    return ac, sn, sp
 
 
 def do_compare(true, pred, should_print):
@@ -95,9 +95,9 @@ def do_compare(true, pred, should_print):
 
     if should_print:
         print("Summary (over all sequences):")
-    ac = print_stats(total_tp, total_fp, total_tn, total_fn, should_print)
+    ac, sn, sp = print_stats(total_tp, total_fp, total_tn, total_fn, should_print)
 
-    return ac
+    return ac, sn, sp
 
 
 if __name__ == '__main__':

@@ -26,6 +26,10 @@ def overlap_over_25_percent(start_diff, end_diff, overlap, longest):
     return overlap * 4 >= longest
 
 
+def overlap_over_10_percent(start_diff, end_diff, overlap, longest):
+    return overlap * 10 >= longest
+
+
 def compare_prediction(name, true, pred, measurement):
 
     true_tmh = find_tmh(true)
@@ -54,7 +58,7 @@ def compare_prediction(name, true, pred, measurement):
     return number_of_correct_predictions, number_of_predicted_tmh, number_of_observed_tmh
 
 
-def compare_predictions(predictions, measurement):
+def compare_predictions(predictions, measurement, should_print=False):
     number_of_correct_predictions = 0
     number_of_predicted_tmh = 0
     number_of_observed_tmh = 0
@@ -69,4 +73,7 @@ def compare_predictions(predictions, measurement):
     precision = number_of_correct_predictions / number_of_predicted_tmh
     recall = number_of_correct_predictions / number_of_observed_tmh
 
-    print("Precision: %.4f    Recall: %.4f" % (precision, recall))
+    if should_print:
+        print("Precision: %.4f    Recall: %.4f" % (precision, recall))
+
+    return precision, recall

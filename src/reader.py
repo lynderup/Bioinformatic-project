@@ -85,16 +85,17 @@ def dataset160_10_fold():
 
     datasets = [[encode_example(example) for example in dataset] for dataset in datasets]
 
-    train_raw_data = []
-    train_raw_labels = []
-    train_names = []
-
-    test_raw_data = []
-    test_raw_labels = []
-    test_names = []
-
     i = 0
     while i < 10:
+
+        train_raw_data = []
+        train_raw_labels = []
+        train_names = []
+
+        test_raw_data = []
+        test_raw_labels = []
+        test_names = []
+
         for idx, dataset in enumerate(datasets):
             for name, xs, zs in dataset:
                 if idx == i:
