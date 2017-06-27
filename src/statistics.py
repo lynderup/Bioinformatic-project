@@ -30,13 +30,13 @@ def char_statistic(predictions):
         sps.append(sp)
 
     ac_mean = np.mean(acs)
-    ac_variance = np.var(acs)
+    ac_variance = np.var(acs, ddof=1)
 
     sn_mean = np.mean(sns)
-    sn_variance = np.var(sns)
+    sn_variance = np.var(sns, ddof=1)
 
     sp_mean = np.mean(sps)
-    sp_variance = np.var(sps)
+    sp_variance = np.var(sps, ddof=1)
 
     return ac_mean, ac_variance, sn_mean, sn_variance, sp_mean, sp_variance
 
@@ -53,10 +53,10 @@ def tmh_50ed5_statistic(predictions):
         recalls.append(recall)
 
     precision_mean = np.mean(precisions)
-    precision_variance = np.var(precisions)
+    precision_variance = np.var(precisions, ddof=1)
 
     recall_mean = np.mean(recalls)
-    recall_variance = np.var(recalls)
+    recall_variance = np.var(recalls, ddof=1)
 
     return precision_mean, precision_variance, recall_mean, recall_variance
 
@@ -72,10 +72,10 @@ def tmh_25_statistic(predictions):
         recalls.append(recall)
 
     precision_mean = np.mean(precisions)
-    precision_variance = np.var(precisions)
+    precision_variance = np.var(precisions, ddof=1)
 
     recall_mean = np.mean(recalls)
-    recall_variance = np.var(recalls)
+    recall_variance = np.var(recalls, ddof=1)
 
     return precision_mean, precision_variance, recall_mean, recall_variance
 
@@ -100,9 +100,9 @@ class Statistic:
         print("Char measure")
         print("Approximate correlation:")
         print("Mean: %.4f   Variance: %.4f" % (ac_mean, ac_variance))
-        print("Sensitivity:")  # Recall
+        print("Sensitivity/Recall:")  # Recall
         print("Mean: %.4f   Variance: %.4f" % (sn_mean, sn_variance))
-        print("Specificity:")  # Precision
+        print("Specificity/Precision:")  # Precision
         print("Mean: %.4f   Variance: %.4f" % (sp_mean, sp_variance))
 
         print("50% overlap, endpoint diff =< 5 measure")
